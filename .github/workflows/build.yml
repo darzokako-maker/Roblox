@@ -1,0 +1,26 @@
+name: Stealth Build
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Engine
+        run: cl.exe /EHsc /O2 engine/main.cpp /link /OUT:stealth_engine.exe
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Build UI
+        run: |
+          pip install customtkinter pyinstaller
+          pyinstaller --onefile --noconsole ui/main.py
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Final-Project
+          path: |
+            dist/main.exe
+            stealth_engine.exe
+            
