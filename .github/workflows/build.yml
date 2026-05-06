@@ -6,20 +6,32 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      # HATA ÇÖZÜMÜ: MSVC Derleyici Ortamını Hazırla
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # C++ Motorunu Derle
       - name: Compile Engine
         run: cl.exe /EHsc /O2 engine/main.cpp /link /OUT:stealth_engine.exe
+
+      # Python Ortamını Kur
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+
+      # UI ve PyInstaller Kurulumu
       - name: Build UI
         run: |
           pip install customtkinter pyinstaller
           pyinstaller --onefile --noconsole ui/main.py
-      - name: Upload
+
+      # Çıktıları Paketle ve Sun
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Final-Project
+          name: Yahya-Stealth-Final
           path: |
             dist/main.exe
             stealth_engine.exe
