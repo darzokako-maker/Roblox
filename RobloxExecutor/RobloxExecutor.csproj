@@ -20,7 +20,7 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="wearedevs_exploit_api">
-      <HintPath>wearedevs_exploit_api.dll</HintPath>
+      <HintPath>..\wearedevs_exploit_api.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>
@@ -28,11 +28,5 @@
     <Compile Include="MainForm.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="wearedevs_exploit_api.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
-
