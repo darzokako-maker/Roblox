@@ -16,6 +16,12 @@ jobs:
     - name: MSBuild Kurulumu
       uses: microsoft/setup-msbuild@v2
 
+    - name: Orijinal API Bağımlılığını İndir
+      shell: powershell
+      run: |
+        # DLL okuma hatasını engellemek için doğrudan kaynaktan temiz binary çekiliyor
+        Invoke-WebRequest -Uri "https://wearedevs.net/download/exploitapi/WeAreDevs_API.dll" -OutFile "wearedevs_exploit_api.dll"
+
     - name: Projeyi Derle (Release Modu)
       run: |
         msbuild RobloxExecutor.sln /p:Configuration=Release /p:Platform="Any CPU" /p:Optimize=true
