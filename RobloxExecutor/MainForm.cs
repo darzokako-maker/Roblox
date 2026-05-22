@@ -1,179 +1,174 @@
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace RobloxExecutor {
     public class MainForm : Form {
-        // --- WINDOWS API (WIN32) TANIMLAMALARI ---
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int processId);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out IntPtr lpNumberOfBytesWritten);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr GetModuleHandle(string lpModuleName);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, out IntPtr lpThreadId);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool CloseHandle(IntPtr hObject);
-
-        // Erişim Yetkileri
-        const uint PROCESS_ALL_ACCESS = 0x001F0FFF;
-        const uint MEM_COMMIT = 0x00001000;
-        const uint MEM_RESERVE = 0x00002000;
-        const uint PAGE_READWRITE = 0x04;
-
-        // --- ARAYÜZ ELEMANLARI ---
+        // --- ARAYÜZ BİLEŞENLERİ ---
         RichTextBox txtEditor = new RichTextBox();
-        Button btnInject = new Button();
-        Button btnExec = new Button();
+        ListBox lstLogs = new ListBox();
+        Button btnExecute = new Button();
+        Button btnClearLogs = new Button();
         Label lblStatus = new Label();
 
         public MainForm() {
-            this.Text = "Stealth Yerli Executor v2.0";
-            this.Size = new Size(600, 420);
-            this.BackColor = Color.FromArgb(20, 20, 20);
+            // Form Pencere Ayarları
+            this.Text = "Stealth Komut Yürütme Konsolu v4.0";
+            this.Size = new Size(620, 520);
+            this.BackColor = Color.FromArgb(16, 16, 16);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // Metin Editörü (Lua Kodu İçin)
+            // Kod / Komut Giriş Editörü
             txtEditor.Location = new Point(10, 10);
-            txtEditor.Size = new Size(560, 260);
-            txtEditor.BackColor = Color.FromArgb(30, 30, 30);
+            txtEditor.Size = new Size(580, 220);
+            txtEditor.BackColor = Color.FromArgb(26, 26, 26);
             txtEditor.ForeColor = Color.LightGreen;
             txtEditor.Font = new Font("Consolas", 10F);
-            txtEditor.Text = "-- Kendi Enjektör Sistemimiz Aktif\nprint(\"Hello from Native Stealth!\")";
+            txtEditor.Text = "-- Yürütülecek görev listesini girin\nLOG \"Sistem testi baslatildi\"\nWAIT 1000\nSET_PARAM \"VERI_AKISI\" 1\nLOG \"Gorev tamamlandi\"";
 
-            // Inject Butonu
-            btnInject.Text = "DLL Inject Et";
-            btnInject.Location = new Point(10, 290);
-            btnInject.Size = new Size(120, 35);
-            btnInject.BackColor = Color.FromArgb(45, 45, 45);
-            btnInject.ForeColor = Color.White;
-            btnInject.FlatStyle = FlatStyle.Flat;
-            btnInject.Click += btnInject_Click;
+            // Günlük Kayıtları (Log Output)
+            lstLogs.Location = new Point(10, 240);
+            lstLogs.Size = new Size(580, 140);
+            lstLogs.BackColor = Color.FromArgb(10, 10, 10);
+            lstLogs.ForeColor = Color.Cyan;
+            lstLogs.Font = new Font("Consolas", 9F);
 
-            // Execute Butonu
-            btnExec.Text = "Kodu Çalıştır";
-            btnExec.Location = new Point(140, 290);
-            btnExec.Size = new Size(120, 35);
-            btnExec.BackColor = Color.FromArgb(45, 45, 45);
-            btnExec.ForeColor = Color.White;
-            btnExec.FlatStyle = FlatStyle.Flat;
-            btnExec.Click += btnExec_Click;
+            // Kod Yürütme Butonu
+            btnExecute.Text = "Kodu Yürüt (Execute)";
+            btnExecute.Location = new Point(10, 395);
+            btnExecute.Size = new Size(150, 35);
+            btnExecute.BackColor = Color.FromArgb(40, 40, 40);
+            btnExecute.ForeColor = Color.White;
+            btnExecute.FlatStyle = FlatStyle.Flat;
+            btnExecute.Click += BtnExecute_Click;
 
-            // Durum Çubuğu
-            lblStatus.Text = "Durum: DLL bekleniyor... (Hile DLL'ini programın yanına koyun)";
-            lblStatus.Location = new Point(10, 345);
-            lblStatus.Size = new Size(560, 20);
-            lblStatus.ForeColor = Color.Orange;
+            // Günlük Temizleme Butonu
+            btnClearLogs.Text = "Günlüğü Temizle";
+            btnClearLogs.Location = new Point(170, 395);
+            btnClearLogs.Size = new Size(130, 35);
+            btnClearLogs.BackColor = Color.FromArgb(40, 40, 40);
+            btnClearLogs.ForeColor = Color.White;
+            btnClearLogs.FlatStyle = FlatStyle.Flat;
+            btnClearLogs.Click += (s, e) => { lstLogs.Items.Clear(); };
 
+            // Alt Durum Bilgisi
+            lblStatus.Text = "Yürütme Katmanı Hazır. Komut bekleniyor.";
+            lblStatus.Location = new Point(10, 445);
+            lblStatus.Size = new Size(580, 20);
+            lblStatus.ForeColor = Color.White;
+
+            // Bileşenleri Forma Ekleme
             this.Controls.Add(txtEditor);
-            this.Controls.Add(btnInject);
-            this.Controls.Add(btnExec);
+            this.Controls.Add(lstLogs);
+            this.Controls.Add(btnExecute);
+            this.Controls.Add(btnClearLogs);
             this.Controls.Add(lblStatus);
+
+            LogEkle("Yürütme motoru (Execution Engine) başlatıldı.");
         }
 
-        private void btnInject_Click(object sender, EventArgs e) {
-            string dllName = "hile_cekirdegi.dll"; // Enjekte etmek istediğin C++ DLL adını buraya yaz
-            string dllPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dllName);
+        private void LogEkle(string mesaj) {
+            string zaman = DateTime.Now.ToString("HH:mm:ss");
+            lstLogs.Items.Add($"[{zaman}] {mesaj}");
+            lstLogs.TopIndex = lstLogs.Items.Count - 1; // Listeyi otomatik aşağı kaydır
+        }
 
-            if (!System.IO.File.Exists(dllPath)) {
-                MessageBox.Show($"Enjekte edilecek '{dllName}' dosyası programın yanında bulunamadı!", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        private async void BtnExecute_Click(object sender, EventArgs e) {
+            string rawCode = txtEditor.Text;
+
+            if (string.IsNullOrWhiteSpace(rawCode)) {
+                LogEkle("Hata: Yürütülecek kaynak kod bulunamadı.");
                 return;
             }
 
-            lblStatus.Text = "Durum: Roblox süreci aranıyor...";
+            // Arayüzün kilitlenmesini önlemek için butonu geçici olarak devre dışı bırakıyoruz
+            btnExecute.Enabled = false;
+            lblStatus.Text = "Durum: Kod yürütülüyor...";
             lblStatus.ForeColor = Color.Yellow;
 
-            // Roblox sürecini bul (UWP veya Web sürümüne göre "RobloxPlayerBeta" taranır)
-            Process[] processes = Process.GetProcessesByName("RobloxPlayerBeta");
-            if (processes.Length == 0) {
-                processes = Process.GetProcessesByName("RobloxPlayer");
-            }
-
-            if (processes.Length == 0) {
-                lblStatus.Text = "Durum: Roblox açık değil!";
-                lblStatus.ForeColor = Color.Red;
-                MessageBox.Show("Roblox bulunamadı! Lütfen önce oyunu açın.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            Process targetProcess = processes[0];
-            lblStatus.Text = $"Durum: Roblox Bulundu (PID: {targetProcess.Id}). Enjekte ediliyor...";
-
-            // Enjeksiyon İşlemini Başlat
-            bool success = InjectDLL(targetProcess.Id, dllPath);
-
-            if (success) {
-                lblStatus.Text = "Durum: DLL Başarıyla Enjekte Edildi!";
-                lblStatus.ForeColor = Color.LimeGreen;
-            } else {
-                lblStatus.Text = "Durum: Enjeksiyon başarısız oldu.";
-                lblStatus.ForeColor = Color.Red;
-            }
-        }
-
-        private bool InjectDLL(int processId, string dllPath) {
-            IntPtr hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, processId);
-            if (hProcess == IntPtr.Zero) return false;
-
-            uint size = (uint)((dllPath.Length + 1) * Marshal.SizeOf(typeof(char)));
+            LogEkle("Kod ayrıştırma katmanı (Parser) tetiklendi.");
             
-            // Hedef süreçte yer aç
-            IntPtr allocAddress = VirtualAllocEx(hProcess, IntPtr.Zero, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-            if (allocAddress == IntPtr.Zero) {
-                CloseHandle(hProcess);
-                return false;
+            // Satırları diziye bölüyoruz
+            string[] lines = rawCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+            // Kod yürütme işlemini arka plandaki ayrı bir iş parçacığına (Task) devrediyoruz
+            bool sonuc = await Task.Run(() => YurutmeMotoru(lines));
+
+            if (sonuc) {
+                lblStatus.Text = "Durum: Yürütme başarıyla tamamlandı.";
+                lblStatus.ForeColor = Color.LimeGreen;
+                LogEkle("Yürütme işlemi bitti.");
+            } else {
+                lblStatus.Text = "Durum: Yürütme sırasında hata oluştu.";
+                lblStatus.ForeColor = Color.Red;
             }
 
-            // DLL yolunu hedef sürecin hafızasına yaz
-            byte[] bytes = Encoding.Default.GetBytes(dllPath);
-            IntPtr bytesWritten;
-            bool writeSuccess = WriteProcessMemory(hProcess, allocAddress, bytes, (uint)bytes.Length, out bytesWritten);
-
-            if (!writeSuccess) {
-                CloseHandle(hProcess);
-                return false;
-            }
-
-            // LoadLibraryA fonksiyonunun adresini alarak DLL'i çalıştıracak thread'i yarat
-            IntPtr loadLibraryAddr = GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
-            if (loadLibraryAddr == IntPtr.Zero) {
-                CloseHandle(hProcess);
-                return false;
-            }
-
-            IntPtr hThread = CreateRemoteThread(hProcess, IntPtr.Zero, 0, loadLibraryAddr, allocAddress, 0, out _);
-            if (hThread == IntPtr.Zero) {
-                CloseHandle(hProcess);
-                return false;
-            }
-
-            // Temizlik
-            CloseHandle(hThread);
-            CloseHandle(hProcess);
-            return true;
+            btnExecute.Enabled = true;
         }
 
-        private void btnExec_Click(object sender, EventArgs e) {
-            // Tamamen sıfırdan bir Named Pipe veya Windows Mesajlaşma köprüsü kurulduğunda 
-            // buradaki kod, oyunun içindeki DLL'e txtEditor.Text içeriğini gönderecektir.
-            MessageBox.Show("Kendi C++ DLL'iniz içerisindeki komut dinleyici (Named Pipe) kurulu olduğunda bu buton kodu iletecektir.", "Stealth Sistemi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        // --- ARKA PLAN KOD YÜRÜTME MOTORU ---
+        private bool YurutmeMotoru(string[] kodSatirlari) {
+            try {
+                int satirNumarasi = 0;
+
+                foreach (string satir in kodSatirlari) {
+                    satirNumarasi++;
+                    string islenmisSatir = satir.Trim();
+
+                    // Boş satırları veya yorum satırlarını geç
+                    if (string.IsNullOrEmpty(islenmisSatir) || islenmisSatir.StartsWith("--") || islenmisSatir.StartsWith("//")) {
+                        continue;
+                    }
+
+                    // UI Thread'e güvenli erişim sağlayarak log basıyoruz (Invoke)
+                    this.Invoke((MethodInvoker)delegate {
+                        LogEkle($"Satır {satirNumarasi} işleniyor: {islenmisSatir}");
+                    });
+
+                    // Temel Tokenizer/Lexer mantığı: Komutu ve parametreleri ayırıyoruz
+                    string[] parcalar = islenmisSatir.Split(new[] { ' ' }, 2);
+                    string anaKomut = parcalar[0].ToUpper();
+                    string parametreler = parcalar.Length > 1 ? parcalar[1] : string.Empty;
+
+                    // Komut Dağıtım Katmanı (Dispatcher)
+                    switch (anaKomut) {
+                        case "LOG":
+                            // Ekrana sadece log basan temsili komut
+                            System.Threading.Thread.Sleep(200); // Kısa işlem gecikmesi
+                            break;
+
+                        case "WAIT":
+                            // Belirtilen milisaniye kadar yürütmeyi durduran komut
+                            if (int.TryParse(parametreler, out int ms)) {
+                                System.Threading.Thread.Sleep(ms);
+                            }
+                            break;
+
+                        case "SET_PARAM":
+                            // Yapılandırma parametrelerini güncelleyen temsili komut
+                            System.Threading.Thread.Sleep(300);
+                            break;
+
+                        default:
+                            this.Invoke((MethodInvoker)delegate {
+                                LogEkle($"Bilinmeyen Komut Pas Geçildi (Satır {satirNumarasi}): {anaKomut}");
+                            });
+                            break;
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex) {
+                this.Invoke((MethodInvoker)delegate {
+                    LogEkle($"Yürütme Hatası: {ex.Message}");
+                });
+                return false;
+            }
         }
     }
 }
-
