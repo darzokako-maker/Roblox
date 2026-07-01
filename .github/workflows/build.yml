@@ -12,11 +12,10 @@ jobs:
     
     - uses: ilammy/msvc-dev-cmd@v1
     
-    - name: Build
+    - name: Build Protected
       shell: cmd
       run: |
-        rc.exe /fo resource.res resource.rc
-        cl.exe /EHsc /MT /O2 /DNDEBUG /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /Fe:executor.exe src/main.cpp resource.res /link kernel32.lib user32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib comctl32.lib gdi32.lib psapi.lib comdlg32.lib /SUBSYSTEM:WINDOWS
+        cl.exe /EHsc /MT /O2 /Ob2 /Oi /Ot /GT /GL /Gy /DNDEBUG /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /DRANDOM_SEED=%RANDOM% /Fe:executor.exe src/main.cpp /link kernel32.lib user32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib comctl32.lib gdi32.lib psapi.lib comdlg32.lib /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /DYNAMICBASE /NXCOMPAT /GUARD:CF /GUARD:EHCONT /CETCOMPAT /ALLOWISOLATION /MERGE:.rdata=.text /MERGE:.pdata=.text
 
     - uses: actions/upload-artifact@v4
       with:
