@@ -1,15 +1,18 @@
 #include <windows.h>
 #include <commctrl.h>
+#include <richedit.h>
 #include <string>
 #include <thread>
 #include <fstream>
 #include <shlobj.h>
+#include <psapi.h>
 #include "injector.h"
 #include "memory.h"
 #include "anti_debug.h"
 #include "xorstr.h"
 
 #pragma comment(lib, "comctl32.lib")
+#pragma comment(lib, "psapi.lib")
 #pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 // Global değişkenler
@@ -19,13 +22,11 @@ HWND hInjectBtn, hExecuteBtn, hClearBtn, hSaveBtn, hLoadBtn, hAutoInjectChk, hCl
 HFONT hFont;
 bool autoInject = false;
 bool isInjected = false;
-COLORREF currentTextColor = RGB(220, 220, 220);
 
 // Renkler
 #define COLOR_BG        RGB(25, 25, 25)
 #define COLOR_BG2       RGB(35, 35, 35)
 #define COLOR_BG3       RGB(45, 45, 45)
-#define COLOR_BORDER    RGB(60, 60, 60)
 #define COLOR_TEXT      RGB(220, 220, 220)
 #define COLOR_GREEN     RGB(0, 200, 100)
 #define COLOR_RED       RGB(255, 80, 80)
@@ -135,7 +136,7 @@ void InjectToRoblox() {
         UpdateStatus("Enjekte edildi - Hazir");
         isInjected = true;
         
-        SetWindowTextA(hInjectBtn, "✓ Enjekte Edildi");
+        SetWindowTextA(hInjectBtn, "ENJEKTE EDILDI");
         EnableWindow(hInjectBtn, FALSE);
         EnableWindow(hExecuteBtn, TRUE);
         
@@ -301,18 +302,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                 DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, "Consolas");
             
-            // Üst başlık paneli
-            HWND hTitleBg = CreateWindowA("STATIC", "",
-                WS_VISIBLE | WS_CHILD,
-                0, 0, 650, 50, hWnd, NULL, NULL, NULL);
-            
+            // Üst başlık
             CreateWindowA("STATIC", "EXECUTOR v3.0",
                 WS_VISIBLE | WS_CHILD | SS_CENTER,
-                0, 5, 650, 25, hWnd, NULL, NULL, NULL);
+                0, 5, 650, 30, hWnd, NULL, NULL, NULL);
             
             CreateWindowA("STATIC", "Advanced Script Executor",
                 WS_VISIBLE | WS_CHILD | SS_CENTER,
-                0, 28, 650, 18, hWnd, NULL, NULL, NULL);
+                0, 30, 650, 20, hWnd, NULL, NULL, NULL);
             
             // Script editör label
             CreateWindowA("STATIC", "SCRIPT EDITOR:",
@@ -325,41 +322,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 ES_AUTOHSCROLL | WS_VSCROLL | WS_HSCROLL,
                 10, 75, 630, 220, hWnd, (HMENU)ID_SCRIPTEDIT, NULL, NULL);
             SendMessage(hScriptEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-            SendMessage(hScriptEdit, EM_SETBKGNDCOLOR, 0, COLOR_BG2);
-            
-            // Buton paneli arkaplan
-            CreateWindowA("STATIC", "",
-                WS_VISIBLE | WS_CHILD | SS_LEFT,
-                10, 305, 630, 70, hWnd, NULL, NULL, NULL);
             
             // Butonlar
             hInjectBtn = CreateWindowA("BUTTON", "ENJEKTE ET",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER,
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 15, 312, 120, 35, hWnd, (HMENU)ID_INJECTBTN, NULL, NULL);
             SendMessage(hInjectBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
             
             hExecuteBtn = CreateWindowA("BUTTON", "CALISTIR",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER | WS_DISABLED,
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | WS_DISABLED,
                 140, 312, 120, 35, hWnd, (HMENU)ID_EXECUTEBTN, NULL, NULL);
             SendMessage(hExecuteBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
             
             hClearBtn = CreateWindowA("BUTTON", "TEMIZLE",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER,
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 265, 312, 90, 35, hWnd, (HMENU)ID_CLEARBTN, NULL, NULL);
             SendMessage(hClearBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
             
             hSaveBtn = CreateWindowA("BUTTON", "KAYDET",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER,
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 360, 312, 90, 35, hWnd, (HMENU)ID_SAVEBTN, NULL, NULL);
             SendMessage(hSaveBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
             
             hLoadBtn = CreateWindowA("BUTTON", "YUKLE",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER,
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 455, 312, 90, 35, hWnd, (HMENU)ID_LOADBTN, NULL, NULL);
             SendMessage(hLoadBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
             
             hClearLogBtn = CreateWindowA("BUTTON", "LOG TEMIZLE",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_CENTER,
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 550, 312, 85, 35, hWnd, (HMENU)ID_CLEARLOGBTN, NULL, NULL);
             SendMessage(hClearLogBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
             
@@ -374,7 +365,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 WS_VISIBLE | WS_CHILD | SS_LEFT,
                 10, 385, 200, 20, hWnd, NULL, NULL, NULL);
             
-            // Log kutusu
+            // Log kutusu - RichEdit kullan
             hLogBox = CreateWindowExA(WS_EX_CLIENTEDGE, RICHEDIT_CLASSA, "",
                 WS_VISIBLE | WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | 
                 ES_READONLY | WS_VSCROLL,
@@ -392,11 +383,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             AddLog("========================================", COLOR_CYAN);
             AddLog("   EXECUTOR v3.0 BASLATILDI", COLOR_GREEN);
             AddLog("========================================", COLOR_CYAN);
-            AddLog("", COLOR_TEXT);
             AddLog("1) Roblox'u acin", COLOR_BLUE);
             AddLog("2) 'ENJEKTE ET' butonuna tiklayin", COLOR_BLUE);
             AddLog("3) Script yazin ve 'CALISTIR' a tiklayin", COLOR_BLUE);
-            AddLog("", COLOR_TEXT);
             AddLog("Hazir bekleniyor...", COLOR_GREEN);
             
             break;
@@ -404,15 +393,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         
         case WM_CTLCOLORSTATIC: {
             HDC hdc = (HDC)wParam;
-            HWND hControl = (HWND)lParam;
-            
             SetBkColor(hdc, COLOR_BG);
             SetTextColor(hdc, COLOR_TEXT);
-            
-            if(hControl == hStatusBar) {
-                SetBkColor(hdc, COLOR_BG3);
-            }
-            
             return (LRESULT)CreateSolidBrush(COLOR_BG);
         }
         
@@ -477,7 +459,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 case ID_AUTOINJECT: {
                     autoInject = SendMessage(hAutoInjectChk, BM_GETCHECK, 0, 0) == BST_CHECKED;
                     if(autoInject) {
-                        AddLog("Auto-Inject AKTIF - Roblox otomatik bulunacak", COLOR_GREEN);
+                        AddLog("Auto-Inject AKTIF", COLOR_GREEN);
                     } else {
                         AddLog("Auto-Inject PASIF", COLOR_RED);
                     }
