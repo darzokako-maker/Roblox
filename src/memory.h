@@ -1,7 +1,10 @@
 #pragma once
 #include <windows.h>
+#include <psapi.h>
 #include <tlhelp32.h>
 #include <vector>
+
+#pragma comment(lib, "psapi.lib")
 
 class Memory {
 public:
@@ -54,27 +57,5 @@ public:
         
         CloseHandle(hSnapshot);
         return 0;
-    }
-    
-    static std::vector<uintptr_t> FindPattern(HANDLE hProcess, uintptr_t start, size_t size, const char* pattern, const char* mask) {
-        std::vector<uintptr_t> results;
-        std::vector<BYTE> buffer(size);
-        SIZE_T bytesRead;
-        
-        ReadProcessMemory(hProcess, (LPCVOID)start, buffer.data(), size, &bytesRead);
-        
-        for(size_t i = 0; i < bytesRead; i++) {
-            bool found = true;
-            for(size_t j = 0; j < strlen(mask); j++) {
-                if(mask[j] == '?') continue;
-                if(buffer[i + j] != (BYTE)pattern[j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if(found) results.push_back(start + i);
-        }
-        
-        return results;
     }
 };
