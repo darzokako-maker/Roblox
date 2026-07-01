@@ -11,11 +11,9 @@ public:
         
         if(IsDebuggerPresent()) return TRUE;
         
+        // x64 uyumlu int3 kontrolü
         __try {
-            __asm {
-                int 3
-                xor eax, eax
-            }
+            DebugBreak();
         }
         __except(EXCEPTION_EXECUTE_HANDLER) {
             return FALSE;
