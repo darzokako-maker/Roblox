@@ -4,18 +4,28 @@
 #include <string>
 #include <thread>
 #include <fstream>
-#include <shlobj.h>
-#include <psapi.h>
-#include "injector.h"
-#include "memory.h"
-#include "anti_debug.h"
-#include "xorstr.h"
+#include <random>
+#include "junk.h"
+#include "obfuscate.h"
+#include "anti_analysis.h"
+#include "safe_calls.h"
 
 #pragma comment(lib, "comctl32.lib")
-#pragma comment(lib, "psapi.lib")
-#pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
-// Global değişkenler
+// Gereksiz global değişkenler (junk)
+volatile int g_junk1 = 0xDEAD;
+volatile int g_junk2 = 0xBEEF;
+volatile int g_junk3 = 0xCAFE;
+volatile int g_junk4 = 0xBABE;
+volatile DWORD g_junk5 = 0x1337;
+volatile DWORD g_junk6 = 0x6969;
+
+// Sahte fonksiyonlar
+void FakeFunc1() { volatile int x = 0; for(int i=0;i<100;i++) x+=i; }
+void FakeFunc2() { volatile int x = 0; for(int i=0;i<200;i++) x*=i; }
+void FakeFunc3() { volatile int x = 0; for(int i=0;i<300;i++) x^=i; }
+void FakeFunc4() { volatile int x = 0; for(int i=0;i<400;i++) x-=i; }
+
 Injector injector;
 HWND hMainWnd, hScriptEdit, hLogBox, hStatusBar;
 HWND hInjectBtn, hExecuteBtn, hClearBtn, hSaveBtn, hLoadBtn, hAutoInjectChk, hClearLogBtn;
@@ -26,16 +36,11 @@ bool isInjected = false;
 // Renkler
 #define COLOR_BG        RGB(25, 25, 25)
 #define COLOR_BG2       RGB(35, 35, 35)
-#define COLOR_BG3       RGB(45, 45, 45)
 #define COLOR_TEXT      RGB(220, 220, 220)
 #define COLOR_GREEN     RGB(0, 200, 100)
 #define COLOR_RED       RGB(255, 80, 80)
 #define COLOR_BLUE      RGB(0, 170, 255)
-#define COLOR_PURPLE    RGB(150, 100, 255)
-#define COLOR_ORANGE    RGB(255, 170, 0)
-#define COLOR_YELLOW    RGB(255, 255, 0)
 #define COLOR_CYAN      RGB(0, 255, 255)
-#define COLOR_GRAY      RGB(150, 150, 150)
 
 // Control ID'leri
 #define ID_SCRIPTEDIT   101
@@ -46,26 +51,20 @@ bool isInjected = false;
 #define ID_LOADBTN      106
 #define ID_AUTOINJECT   107
 #define ID_LOGBOX       108
-#define ID_STATUSBAR    109
-#define ID_CLEARLOGBTN  110
+#define ID_CLEARLOGBTN  109
 
-// Fonksiyon prototipleri
-void AddLog(const char* text, COLORREF color = COLOR_TEXT);
-void UpdateStatus(const char* text);
-void InjectToRoblox();
-void ExecuteScript();
-void ClearScript();
-void SaveScript();
-void LoadScript();
-void AutoInjectLoop();
-
-// Status bar güncelleme
+// Durum güncelleme
 void UpdateStatus(const char* text) {
+    JunkCode::Generate();
     SetWindowTextA(hStatusBar, text);
+    JunkCode::FakeMath();
 }
 
-// Log ekleme fonksiyonu
+// Log ekleme
 void AddLog(const char* text, COLORREF color) {
+    JunkCode::AddJunkVariables();
+    Obfuscator::FakeControlFlow();
+    
     SYSTEMTIME st;
     GetLocalTime(&st);
     
@@ -75,57 +74,44 @@ void AddLog(const char* text, COLORREF color) {
     std::string fullText = std::string(timeStr) + text + "\r\n";
     
     int len = GetWindowTextLengthA(hLogBox);
-    SendMessageA(hLogBox, EM_SETSEL, (WPARAM)len, (LPARAM)len);
+    SendMessageA(hLogBox, EM_SETSEL, len, len);
     
-    CHARFORMAT2A cf;
-    memset(&cf, 0, sizeof(CHARFORMAT2A));
+    CHARFORMAT2A cf = {0};
     cf.cbSize = sizeof(CHARFORMAT2A);
-    cf.dwMask = CFM_COLOR | CFM_BOLD;
+    cf.dwMask = CFM_COLOR;
     cf.crTextColor = color;
-    cf.dwEffects = 0;
     
     SendMessageA(hLogBox, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
     SendMessageA(hLogBox, EM_REPLACESEL, FALSE, (LPARAM)fullText.c_str());
     
-    // Scroll to bottom
-    SendMessageA(hLogBox, EM_SCROLL, SB_BOTTOM, 0);
+    JunkCode::DeadCodeBlocks();
 }
 
-// Roblox'a enjekte et
+// Roblox'a enjekte
 void InjectToRoblox() {
-    if(isInjected) {
-        AddLog("Zaten enjekte edildi!", COLOR_YELLOW);
-        return;
-    }
+    JunkCode::Generate();
+    Obfuscator::ControlFlowFlatten();
     
     AddLog("Roblox araniyor...", COLOR_BLUE);
-    UpdateStatus("Roblox araniyor...");
     
     DWORD pid = Memory::GetPID(L"RobloxPlayerBeta.exe");
-    if(!pid) {
-        pid = Memory::GetPID(L"RobloxPlayerLauncher.exe");
-    }
+    if(!pid) pid = Memory::GetPID(L"RobloxPlayerLauncher.exe");
     
     if(!pid) {
-        AddLog("Roblox bulunamadi! Once Roblox'u acin.", COLOR_RED);
-        UpdateStatus("Roblox bulunamadi");
-        MessageBoxA(hMainWnd, "Roblox acik degil!\nLutfen once Roblox'u baslatin.", "Hata", MB_ICONERROR);
+        AddLog("Roblox bulunamadi!", COLOR_RED);
         return;
     }
     
-    char pidText[100];
-    sprintf_s(pidText, "Roblox bulundu! PID: %d", pid);
-    AddLog(pidText, COLOR_GREEN);
+    char buf[100];
+    sprintf_s(buf, "Roblox bulundu! PID: %d", pid);
+    AddLog(buf, COLOR_GREEN);
     
     if(!injector.Attach(pid)) {
-        AddLog("Process acilamadi! Yonetici olarak calistirin.", COLOR_RED);
-        UpdateStatus("Yetki hatasi");
-        MessageBoxA(hMainWnd, "Process acilamadi!\nYonetici olarak calistirmayi deneyin.", "Hata", MB_ICONERROR);
+        AddLog("Process acilamadi!", COLOR_RED);
         return;
     }
     
     AddLog("DLL enjekte ediliyor...", COLOR_BLUE);
-    UpdateStatus("DLL enjekte ediliyor...");
     
     char dllPath[MAX_PATH];
     GetCurrentDirectoryA(MAX_PATH, dllPath);
@@ -133,301 +119,144 @@ void InjectToRoblox() {
     
     if(injector.Inject(dllPath)) {
         AddLog("Basarili! Executor hazir.", COLOR_GREEN);
-        UpdateStatus("Enjekte edildi - Hazir");
         isInjected = true;
-        
-        SetWindowTextA(hInjectBtn, "ENJEKTE EDILDI");
-        EnableWindow(hInjectBtn, FALSE);
         EnableWindow(hExecuteBtn, TRUE);
-        
-        MessageBoxA(hMainWnd, "Basarili!\nExecutor hazir, script calistirabilirsiniz.", "Bilgi", MB_ICONINFORMATION);
+        EnableWindow(hInjectBtn, FALSE);
     } else {
         AddLog("Enjeksiyon basarisiz!", COLOR_RED);
-        UpdateStatus("Enjeksiyon hatasi");
-        MessageBoxA(hMainWnd, "Enjeksiyon basarisiz!\nDLL dosyasini kontrol edin.", "Hata", MB_ICONERROR);
-        injector.Detach();
     }
+    
+    FakeFunc1();
+    JunkCode::FakeStrings();
 }
 
 // Script çalıştır
 void ExecuteScript() {
-    if(!isInjected) {
-        AddLog("Once Roblox'a enjekte edin!", COLOR_ORANGE);
-        MessageBoxA(hMainWnd, "Once Roblox'a enjekte etmelisiniz!", "Uyari", MB_ICONWARNING);
-        return;
-    }
+    JunkCode::Generate();
+    Obfuscator::FakeControlFlow();
     
     int len = GetWindowTextLengthA(hScriptEdit);
-    if(len == 0) {
-        AddLog("Script kutusu bos!", COLOR_ORANGE);
-        MessageBoxA(hMainWnd, "Script yazmayi unuttunuz!", "Uyari", MB_ICONWARNING);
-        return;
-    }
+    if(len == 0 || !isInjected) return;
     
     char* script = new char[len + 1];
     GetWindowTextA(hScriptEdit, script, len + 1);
     
-    AddLog("Script calistiriliyor...", COLOR_PURPLE);
-    UpdateStatus("Script calistiriliyor...");
+    AddLog("Script calistiriliyor...", COLOR_BLUE);
     
     HMODULE dll = GetModuleHandleA("exploit.dll");
-    if(!dll) {
-        dll = LoadLibraryA("exploit.dll");
-    }
+    if(!dll) dll = LoadLibraryA("exploit.dll");
     
-    if(!dll) {
-        AddLog("exploit.dll bulunamadi!", COLOR_RED);
-        delete[] script;
-        return;
-    }
-    
-    typedef void (*ExecuteFunc)(const char*);
-    ExecuteFunc exec = (ExecuteFunc)GetProcAddress(dll, "ExecuteExploit");
-    
-    if(exec) {
-        exec(script);
-        AddLog("Script basariyla calistirildi.", COLOR_GREEN);
-        UpdateStatus("Script calistirildi");
-    } else {
-        AddLog("ExecuteExploit fonksiyonu DLL icinde bulunamadi!", COLOR_RED);
-        UpdateStatus("Fonksiyon bulunamadi");
-    }
-    
-    delete[] script;
-}
-
-// Script temizle
-void ClearScript() {
-    SetWindowTextA(hScriptEdit, "");
-    AddLog("Script temizlendi.", COLOR_GRAY);
-    UpdateStatus("Script temizlendi");
-}
-
-// Script kaydet
-void SaveScript() {
-    int len = GetWindowTextLengthA(hScriptEdit);
-    if(len == 0) {
-        AddLog("Kaydedilecek script yok!", COLOR_ORANGE);
-        return;
-    }
-    
-    char* script = new char[len + 1];
-    GetWindowTextA(hScriptEdit, script, len + 1);
-    
-    OPENFILENAMEA ofn = {0};
-    char fileName[MAX_PATH] = "script.txt";
-    
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = hMainWnd;
-    ofn.lpstrFilter = "Lua Scripts\0*.lua\0Text Files\0*.txt\0All Files\0*.*\0";
-    ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrDefExt = "lua";
-    ofn.Flags = OFN_OVERWRITEPROMPT;
-    
-    if(GetSaveFileNameA(&ofn)) {
-        std::ofstream file(fileName);
-        if(file.is_open()) {
-            file << script;
-            file.close();
-            
-            char msg[200];
-            sprintf_s(msg, "Script kaydedildi: %s", fileName);
-            AddLog(msg, COLOR_GREEN);
-            UpdateStatus("Script kaydedildi");
-        } else {
-            AddLog("Dosya kaydedilemedi!", COLOR_RED);
+    if(dll) {
+        typedef void (*Exec)(const char*);
+        Exec exec = (Exec)GetProcAddress(dll, "ExecuteExploit");
+        if(exec) {
+            exec(script);
+            AddLog("Script tamamlandi.", COLOR_GREEN);
         }
     }
     
     delete[] script;
+    FakeFunc2();
+    JunkCode::FakeMath();
 }
 
-// Script yükle
-void LoadScript() {
-    OPENFILENAMEA ofn = {0};
-    char fileName[MAX_PATH] = "";
-    
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = hMainWnd;
-    ofn.lpstrFilter = "Lua Scripts\0*.lua\0Text Files\0*.txt\0All Files\0*.*\0";
-    ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
-    
-    if(GetOpenFileNameA(&ofn)) {
-        std::ifstream file(fileName);
-        if(file.is_open()) {
-            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-            SetWindowTextA(hScriptEdit, content.c_str());
-            
-            char msg[200];
-            sprintf_s(msg, "Script yuklendi: %s", fileName);
-            AddLog(msg, COLOR_GREEN);
-            UpdateStatus("Script yuklendi");
-        } else {
-            AddLog("Dosya acilamadi!", COLOR_RED);
-        }
-    }
-}
-
-// Log temizle
-void ClearLog() {
-    SetWindowTextA(hLogBox, "");
-    AddLog("Log temizlendi.", COLOR_GRAY);
-}
-
-// Auto-inject thread
-void AutoInjectLoop() {
-    while(true) {
-        if(autoInject && !isInjected) {
-            DWORD pid = Memory::GetPID(L"RobloxPlayerBeta.exe");
-            if(!pid) {
-                pid = Memory::GetPID(L"RobloxPlayerLauncher.exe");
-            }
-            if(pid) {
-                InjectToRoblox();
-            }
-        }
-        Sleep(3000);
-    }
-}
-
-// WndProc - Ana mesaj işleyici
+// WndProc
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    // Her mesajda junk code
+    volatile int j1 = GetTickCount() % 1000;
+    volatile int j2 = j1 * 2;
+    j1 = j2 - j1;
+    
     switch(msg) {
         case WM_CREATE: {
-            // Modern font oluştur
-            hFont = CreateFontA(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            AntiAnalysis::Initialize();
+            JunkCode::Generate();
+            
+            hFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, "Consolas");
+                DEFAULT_QUALITY, FIXED_PITCH, "Consolas");
             
-            // Üst başlık
-            CreateWindowA("STATIC", "EXECUTOR v3.0",
+            // Başlık
+            CreateWindowA("STATIC", Obfuscator::HideString("EXECUTOR"),
                 WS_VISIBLE | WS_CHILD | SS_CENTER,
-                0, 5, 650, 30, hWnd, NULL, NULL, NULL);
-            
-            CreateWindowA("STATIC", "Advanced Script Executor",
-                WS_VISIBLE | WS_CHILD | SS_CENTER,
-                0, 30, 650, 20, hWnd, NULL, NULL, NULL);
-            
-            // Script editör label
-            CreateWindowA("STATIC", "SCRIPT EDITOR:",
-                WS_VISIBLE | WS_CHILD | SS_LEFT,
-                10, 55, 200, 20, hWnd, NULL, NULL, NULL);
+                10, 5, 600, 25, hWnd, NULL, NULL, NULL);
             
             // Script editör
             hScriptEdit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "",
-                WS_VISIBLE | WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | 
-                ES_AUTOHSCROLL | WS_VSCROLL | WS_HSCROLL,
-                10, 75, 630, 220, hWnd, (HMENU)ID_SCRIPTEDIT, NULL, NULL);
+                WS_VISIBLE | WS_CHILD | ES_MULTILINE | WS_VSCROLL,
+                10, 35, 600, 200, hWnd, (HMENU)ID_SCRIPTEDIT, NULL, NULL);
             SendMessage(hScriptEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
             
             // Butonlar
             hInjectBtn = CreateWindowA("BUTTON", "ENJEKTE ET",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                15, 312, 120, 35, hWnd, (HMENU)ID_INJECTBTN, NULL, NULL);
-            SendMessage(hInjectBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+                WS_VISIBLE | WS_CHILD,
+                10, 245, 110, 30, hWnd, (HMENU)ID_INJECTBTN, NULL, NULL);
             
             hExecuteBtn = CreateWindowA("BUTTON", "CALISTIR",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | WS_DISABLED,
-                140, 312, 120, 35, hWnd, (HMENU)ID_EXECUTEBTN, NULL, NULL);
-            SendMessage(hExecuteBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+                WS_VISIBLE | WS_CHILD | WS_DISABLED,
+                125, 245, 110, 30, hWnd, (HMENU)ID_EXECUTEBTN, NULL, NULL);
             
             hClearBtn = CreateWindowA("BUTTON", "TEMIZLE",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                265, 312, 90, 35, hWnd, (HMENU)ID_CLEARBTN, NULL, NULL);
-            SendMessage(hClearBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+                WS_VISIBLE | WS_CHILD,
+                240, 245, 80, 30, hWnd, (HMENU)ID_CLEARBTN, NULL, NULL);
             
             hSaveBtn = CreateWindowA("BUTTON", "KAYDET",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                360, 312, 90, 35, hWnd, (HMENU)ID_SAVEBTN, NULL, NULL);
-            SendMessage(hSaveBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+                WS_VISIBLE | WS_CHILD,
+                325, 245, 80, 30, hWnd, (HMENU)ID_SAVEBTN, NULL, NULL);
             
             hLoadBtn = CreateWindowA("BUTTON", "YUKLE",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                455, 312, 90, 35, hWnd, (HMENU)ID_LOADBTN, NULL, NULL);
-            SendMessage(hLoadBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+                WS_VISIBLE | WS_CHILD,
+                410, 245, 80, 30, hWnd, (HMENU)ID_LOADBTN, NULL, NULL);
             
             hClearLogBtn = CreateWindowA("BUTTON", "LOG TEMIZLE",
-                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                550, 312, 85, 35, hWnd, (HMENU)ID_CLEARLOGBTN, NULL, NULL);
-            SendMessage(hClearLogBtn, WM_SETFONT, (WPARAM)hFont, TRUE);
+                WS_VISIBLE | WS_CHILD,
+                495, 245, 90, 30, hWnd, (HMENU)ID_CLEARLOGBTN, NULL, NULL);
             
-            // Auto-inject checkbox
-            hAutoInjectChk = CreateWindowA("BUTTON", "AUTO-INJECT (Otomatik enjeksiyon)",
+            hAutoInjectChk = CreateWindowA("BUTTON", "AUTO-INJECT",
                 WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-                15, 355, 300, 20, hWnd, (HMENU)ID_AUTOINJECT, NULL, NULL);
-            SendMessage(hAutoInjectChk, WM_SETFONT, (WPARAM)hFont, TRUE);
+                10, 280, 150, 20, hWnd, (HMENU)ID_AUTOINJECT, NULL, NULL);
             
-            // Log label
-            CreateWindowA("STATIC", "LOG:",
-                WS_VISIBLE | WS_CHILD | SS_LEFT,
-                10, 385, 200, 20, hWnd, NULL, NULL, NULL);
-            
-            // Log kutusu - RichEdit kullan
+            // Log kutusu
+            LoadLibraryA("msftedit.dll");
             hLogBox = CreateWindowExA(WS_EX_CLIENTEDGE, RICHEDIT_CLASSA, "",
-                WS_VISIBLE | WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | 
-                ES_READONLY | WS_VSCROLL,
-                10, 405, 630, 150, hWnd, (HMENU)ID_LOGBOX, NULL, NULL);
+                WS_VISIBLE | WS_CHILD | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+                10, 305, 600, 130, hWnd, (HMENU)ID_LOGBOX, NULL, NULL);
             SendMessage(hLogBox, WM_SETFONT, (WPARAM)hFont, TRUE);
             SendMessage(hLogBox, EM_SETBKGNDCOLOR, 0, COLOR_BG);
             
             // Status bar
-            hStatusBar = CreateWindowA("STATIC", "Hazir - Roblox'u acin ve Enjekte Et'e tiklayin",
+            hStatusBar = CreateWindowA("STATIC", "Hazir",
                 WS_VISIBLE | WS_CHILD | SS_LEFT | SS_SUNKEN,
-                0, 562, 650, 22, hWnd, (HMENU)ID_STATUSBAR, NULL, NULL);
-            SendMessage(hStatusBar, WM_SETFONT, (WPARAM)hFont, TRUE);
+                0, 442, 620, 20, hWnd, NULL, NULL, NULL);
             
-            // Welcome mesajı
-            AddLog("========================================", COLOR_CYAN);
-            AddLog("   EXECUTOR v3.0 BASLATILDI", COLOR_GREEN);
-            AddLog("========================================", COLOR_CYAN);
-            AddLog("1) Roblox'u acin", COLOR_BLUE);
-            AddLog("2) 'ENJEKTE ET' butonuna tiklayin", COLOR_BLUE);
-            AddLog("3) Script yazin ve 'CALISTIR' a tiklayin", COLOR_BLUE);
-            AddLog("Hazir bekleniyor...", COLOR_GREEN);
+            AddLog("Executor baslatildi.", COLOR_GREEN);
             
+            FakeFunc3();
             break;
         }
         
-        case WM_CTLCOLORSTATIC: {
-            HDC hdc = (HDC)wParam;
-            SetBkColor(hdc, COLOR_BG);
-            SetTextColor(hdc, COLOR_TEXT);
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLOREDIT:
+            SetBkColor((HDC)wParam, COLOR_BG);
+            SetTextColor((HDC)wParam, COLOR_TEXT);
             return (LRESULT)CreateSolidBrush(COLOR_BG);
-        }
-        
-        case WM_CTLCOLOREDIT: {
-            HDC hdc = (HDC)wParam;
-            SetBkColor(hdc, COLOR_BG2);
-            SetTextColor(hdc, COLOR_TEXT);
-            return (LRESULT)CreateSolidBrush(COLOR_BG2);
-        }
-        
-        case WM_CTLCOLORBTN: {
-            HDC hdc = (HDC)wParam;
-            SetBkColor(hdc, COLOR_BG3);
-            SetTextColor(hdc, COLOR_TEXT);
-            return (LRESULT)CreateSolidBrush(COLOR_BG3);
-        }
         
         case WM_ERASEBKGND: {
-            HDC hdc = (HDC)wParam;
             RECT rect;
             GetClientRect(hWnd, &rect);
             HBRUSH brush = CreateSolidBrush(COLOR_BG);
-            FillRect(hdc, &rect, brush);
+            FillRect((HDC)wParam, &rect, brush);
             DeleteObject(brush);
             return 1;
         }
         
         case WM_COMMAND: {
-            int id = LOWORD(wParam);
+            JunkCode::Generate();
             
-            switch(id) {
+            switch(LOWORD(wParam)) {
                 case ID_INJECTBTN:
                     CreateThread(NULL, 0, [](LPVOID) -> DWORD {
+                        JunkCode::Generate();
                         InjectToRoblox();
                         return 0;
                     }, NULL, 0, NULL);
@@ -435,118 +264,98 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     
                 case ID_EXECUTEBTN:
                     CreateThread(NULL, 0, [](LPVOID) -> DWORD {
+                        JunkCode::Generate();
                         ExecuteScript();
                         return 0;
                     }, NULL, 0, NULL);
                     break;
                     
                 case ID_CLEARBTN:
-                    ClearScript();
-                    break;
-                    
-                case ID_SAVEBTN:
-                    SaveScript();
-                    break;
-                    
-                case ID_LOADBTN:
-                    LoadScript();
+                    SetWindowTextA(hScriptEdit, "");
                     break;
                     
                 case ID_CLEARLOGBTN:
-                    ClearLog();
+                    SetWindowTextA(hLogBox, "");
                     break;
                     
-                case ID_AUTOINJECT: {
+                case ID_AUTOINJECT:
                     autoInject = SendMessage(hAutoInjectChk, BM_GETCHECK, 0, 0) == BST_CHECKED;
-                    if(autoInject) {
-                        AddLog("Auto-Inject AKTIF", COLOR_GREEN);
-                    } else {
-                        AddLog("Auto-Inject PASIF", COLOR_RED);
-                    }
                     break;
-                }
             }
             break;
         }
         
-        case WM_SIZE: {
-            int width = LOWORD(lParam);
-            int height = HIWORD(lParam);
-            
-            SetWindowPos(hScriptEdit, NULL, 10, 75, width - 25, 220, SWP_NOZORDER);
-            SetWindowPos(hLogBox, NULL, 10, 405, width - 25, height - 470, SWP_NOZORDER);
-            SetWindowPos(hStatusBar, NULL, 0, height - 22, width, 22, SWP_NOZORDER);
-            break;
-        }
-        
         case WM_DESTROY:
-            injector.Detach();
-            DeleteObject(hFont);
             PostQuitMessage(0);
             break;
     }
     
+    FakeFunc4();
     return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-// WinMain giriş noktası
+// Auto-inject thread
+void AutoInjectLoop() {
+    while(true) {
+        JunkCode::Generate();
+        if(autoInject && !isInjected) {
+            DWORD pid = Memory::GetPID(L"RobloxPlayerBeta.exe");
+            if(pid) InjectToRoblox();
+        }
+        Sleep(5000);
+    }
+}
+
+// WinMain
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // Anti-debug başlat
-    AntiDebug::Initialize();
+    // Junk code
+    JunkCode::Generate();
+    Obfuscator::ControlFlowFlatten();
+    FakeFunc1();
+    FakeFunc2();
     
-    // Rich edit kütüphanesini yükle
-    LoadLibraryA("msftedit.dll");
+    // Anti-analiz
+    AntiAnalysis::Initialize();
     
-    // Pencere sınıfı kaydet
+    // Sahte işlemler
+    JunkCode::FakeFunctionCalls();
+    JunkCode::DeadCodeBlocks();
+    JunkCode::FakeStrings();
+    JunkCode::FakeMath();
+    
+    // Pencere sınıfı
     WNDCLASSEXA wc = {0};
     wc.cbSize = sizeof(WNDCLASSEXA);
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
-    wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
     wc.hInstance = hInstance;
-    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = CreateSolidBrush(COLOR_BG);
-    wc.lpszMenuName = NULL;
-    wc.lpszClassName = "ExecutorClass";
-    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+    wc.lpszClassName = "WinClass";
     
-    if(!RegisterClassExA(&wc)) {
-        MessageBoxA(NULL, "Pencere sinifi kaydedilemedi!", "Hata", MB_ICONERROR);
-        return 1;
-    }
+    RegisterClassExA(&wc);
     
-    // Ana pencere oluştur
-    hMainWnd = CreateWindowExA(
-        WS_EX_APPWINDOW,
-        "ExecutorClass",
-        "Executor v3.0 - Advanced Script Executor",
+    // Pencere oluştur
+    hMainWnd = CreateWindowExA(0, "WinClass", "Executor",
         WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX & ~WS_THICKFRAME,
-        (GetSystemMetrics(SM_CXSCREEN) - 650) / 2,
-        (GetSystemMetrics(SM_CYSCREEN) - 620) / 2,
-        650, 620,
-        NULL, NULL, hInstance, NULL
-    );
-    
-    if(!hMainWnd) {
-        MessageBoxA(NULL, "Pencere olusturulamadi!", "Hata", MB_ICONERROR);
-        return 1;
-    }
+        (GetSystemMetrics(SM_CXSCREEN) - 630) / 2,
+        (GetSystemMetrics(SM_CYSCREEN) - 490) / 2,
+        630, 490,
+        NULL, NULL, hInstance, NULL);
     
     ShowWindow(hMainWnd, nCmdShow);
-    UpdateWindow(hMainWnd);
     
-    // Auto-inject thread başlat
+    // Auto-inject thread
     std::thread autoThread(AutoInjectLoop);
     autoThread.detach();
     
     // Mesaj döngüsü
     MSG msg;
     while(GetMessage(&msg, NULL, 0, 0)) {
+        JunkCode::Generate();
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
     
-    return (int)msg.wParam;
+    return msg.wParam;
 }
