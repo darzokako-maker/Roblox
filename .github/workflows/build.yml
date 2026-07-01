@@ -1,23 +1,36 @@
-name: Build
+name: Build All
 
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     
     steps:
     - uses: actions/checkout@v4
     
     - uses: ilammy/msvc-dev-cmd@v1
     
-    - name: Build Protected
+    - name: Build DLL
       shell: cmd
       run: |
-        cl.exe /EHsc /MT /O2 /Ob2 /Oi /Ot /GT /GL /Gy /DNDEBUG /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /DRANDOM_SEED=%RANDOM% /Fe:executor.exe src/main.cpp /link kernel32.lib user32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib comctl32.lib gdi32.lib psapi.lib comdlg32.lib /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /DYNAMICBASE /NXCOMPAT /GUARD:CF /GUARD:EHCONT /CETCOMPAT /ALLOWISOLATION /MERGE:.rdata=.text /MERGE:.pdata=.text
+        cl.exe /EHsc /MT /O2 /LD /DNDEBUG /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /Fe:exploit.dll src/exploit.cpp /link kernel32.lib user32.lib /SUBSYSTEM:WINDOWS /DLL /DEF:exploit.def /OPT:REF /OPT:ICF
+
+    - name: Build EXE
+      shell: cmd
+      run: |
+        cl.exe /EHsc /MT /O2 /DNDEBUG /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /Fe:executor.exe src/main.cpp /link kernel32.lib user32.lib advapi32.lib shell32.lib ole32.lib comctl32.lib gdi32.lib psapi.lib comdlg32.lib /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF
+
+    - name: Package
+      shell: cmd
+      run: |
+        mkdir release
+        copy executor.exe release\
+        copy exploit.dll release\
+        powershell -Command "Compress-Archive -Path release\* -DestinationPath Executor.zip"
 
     - uses: actions/upload-artifact@v4
       with:
         name: Executor
-        path: executor.exe
+        path: Executor.zip
