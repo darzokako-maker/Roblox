@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       matrix:
         arch: [x64, x86]
@@ -20,20 +20,24 @@ jobs:
       with:
         arch: ${{ matrix.arch }}
     
-    - name: Compile
+    - name: Compile Resource
+      shell: cmd
+      run: rc.exe /fo resource.res resource.rc
+    
+    - name: Compile Executor
       shell: cmd
       run: |
-        rc.exe /fo resource.res resource.rc
         cl.exe ^
           /EHsc /MT /O2 /Ob2 /Oi /Ot /GL /Gy ^
           /DNDEBUG /DUNICODE /D_UNICODE ^
           /D_CRT_SECURE_NO_WARNINGS ^
+          /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS ^
           /Gs9999999 ^
           /Fe:executor_${{ matrix.arch }}.exe ^
           src/main.cpp resource.res ^
           /link ^
           kernel32.lib user32.lib advapi32.lib shell32.lib ^
-          ole32.lib oleaut32.lib comctl32.lib gdi32.lib ^
+          ole32.lib oleaut32.lib comctl32.lib gdi32.lib psapi.lib ^
           /MERGE:.rdata=.text ^
           /MERGE:.pdata=.text ^
           /OPT:REF /OPT:ICF ^
