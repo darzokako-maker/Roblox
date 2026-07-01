@@ -2,27 +2,51 @@ name: Build Executor
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-
+    strategy:
+      matrix:
+        arch: [x64, x86]
+    
     steps:
-    - name: Depoyu Indir
-      uses: actions/checkout@v4
-
-    - name: MSBuild Kurulumu
-      uses: microsoft/setup-msbuild@v2
-
-    - name: Projeyi Derle (Release Modu)
-      run: |
-        msbuild RobloxExecutor.sln /p:Configuration=Release /p:Platform="Any CPU" /p:Optimize=true
-
-    - name: Çıktıları Paketle ve Yükle
-      uses: actions/upload-artifact@v4
+    - uses: actions/checkout@v4
+    
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
       with:
-        name: Executor-Programi
-        path: .\\RobloxExecutor\\bin\\Release\\
+        arch: ${{ matrix.arch }}
+    
+    - name: Compile
+      shell: cmd
+      run: |
+        rc.exe /fo resource.res resource.rc
+        cl.exe ^
+          /EHsc /MT /O2 /Ob2 /Oi /Ot /GL /Gy ^
+          /DNDEBUG /DUNICODE /D_UNICODE ^
+          /D_CRT_SECURE_NO_WARNINGS ^
+          /Gs9999999 ^
+          /Fe:executor_${{ matrix.arch }}.exe ^
+          src/main.cpp resource.res ^
+          /link ^
+          kernel32.lib user32.lib advapi32.lib shell32.lib ^
+          ole32.lib oleaut32.lib comctl32.lib gdi32.lib ^
+          /MERGE:.rdata=.text ^
+          /MERGE:.pdata=.text ^
+          /OPT:REF /OPT:ICF ^
+          /LTCG ^
+          /SUBSYSTEM:WINDOWS
+          
+    - name: Package
+      shell: cmd
+      run: |
+        powershell -Command "Compress-Archive -Path executor_${{ matrix.arch }}.exe,src/exploit.dll -DestinationPath Executor_${{ matrix.arch }}.zip"
         
+    - uses: actions/upload-artifact@v4
+      with:
+        name: Executor-${{ matrix.arch }}
+        path: Executor_${{ matrix.arch }}.zip
+        retention-days: 90
