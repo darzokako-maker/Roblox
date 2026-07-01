@@ -1,56 +1,24 @@
-name: Build Executor
+name: Build
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: windows-2022
-    strategy:
-      matrix:
-        arch: [x64, x86]
+    runs-on: windows-latest
+    timeout-minutes: 10
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: ${{ matrix.arch }}
+    - uses: ilammy/msvc-dev-cmd@v1
     
-    - name: Compile Resource
-      shell: cmd
-      run: rc.exe /fo resource.res resource.rc
+    - name: Compile step 1
+      run: cl.exe /c /EHsc /MT /O2 /DNDEBUG /DUNICODE src/main.cpp /Fosrc/main.obj
     
-    - name: Compile Executor
-      shell: cmd
-      run: |
-        cl.exe ^
-          /EHsc /MT /O2 /Ob2 /Oi /Ot /GL /Gy ^
-          /DNDEBUG /DUNICODE /D_UNICODE ^
-          /D_CRT_SECURE_NO_WARNINGS ^
-          /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS ^
-          /Gs9999999 ^
-          /Fe:executor_${{ matrix.arch }}.exe ^
-          src/main.cpp resource.res ^
-          /link ^
-          kernel32.lib user32.lib advapi32.lib shell32.lib ^
-          ole32.lib oleaut32.lib comctl32.lib gdi32.lib psapi.lib ^
-          /MERGE:.rdata=.text ^
-          /MERGE:.pdata=.text ^
-          /OPT:REF /OPT:ICF ^
-          /LTCG ^
-          /SUBSYSTEM:WINDOWS
-          
-    - name: Package
-      shell: cmd
-      run: |
-        powershell -Command "Compress-Archive -Path executor_${{ matrix.arch }}.exe,src/exploit.dll -DestinationPath Executor_${{ matrix.arch }}.zip"
-        
+    - name: Compile step 2  
+      run: link.exe src/main.obj kernel32.lib user32.lib comctl32.lib gdi32.lib psapi.lib shell32.lib ole32.lib /OUT:executor.exe /SUBSYSTEM:WINDOWS
+    
     - uses: actions/upload-artifact@v4
       with:
-        name: Executor-${{ matrix.arch }}
-        path: Executor_${{ matrix.arch }}.zip
-        retention-days: 90
+        name: Executor
+        path: executor.exe
