@@ -12,12 +12,28 @@ jobs:
     
     - uses: ilammy/msvc-dev-cmd@v1
     
-    - name: Compile step 1
-      run: cl.exe /c /EHsc /MT /O2 /DNDEBUG /DUNICODE src/main.cpp /Fosrc/main.obj
-    
-    - name: Compile step 2  
-      run: link.exe src/main.obj kernel32.lib user32.lib comctl32.lib gdi32.lib psapi.lib shell32.lib ole32.lib /OUT:executor.exe /SUBSYSTEM:WINDOWS
-    
+    - name: Build All
+      shell: cmd
+      run: |
+        echo #include ^<windows.h^> > resource.rc
+        echo VS_VERSION_INFO VERSIONINFO >> resource.rc
+        echo BEGIN >> resource.rc
+        echo BLOCK "StringFileInfo" >> resource.rc
+        echo BEGIN >> resource.rc
+        echo BLOCK "040904B0" >> resource.rc
+        echo BEGIN >> resource.rc
+        echo VALUE "FileDescription","Executor" >> resource.rc
+        echo END >> resource.rc
+        echo END >> resource.rc
+        echo END >> resource.rc
+        echo BLOCK "VarFileInfo" >> resource.rc
+        echo BEGIN >> resource.rc
+        echo VALUE "Translation",0x409,1200 >> resource.rc
+        echo END >> resource.rc
+        echo END >> resource.rc
+        rc.exe /fo resource.res resource.rc
+        cl.exe /EHsc /MT /O2 /DNDEBUG /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS /Fe:executor.exe src/main.cpp resource.res /link kernel32.lib user32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib comctl32.lib gdi32.lib psapi.lib comdlg32.lib /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG
+
     - uses: actions/upload-artifact@v4
       with:
         name: Executor
